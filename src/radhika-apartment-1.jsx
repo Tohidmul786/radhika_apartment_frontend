@@ -108,7 +108,7 @@ function LoginScreen({ onLogin }) {
         <button onClick={handleLogin} disabled={loading} style={{ width:"100%", padding:"13px", borderRadius:11, background:"linear-gradient(135deg,#0c1f3f,#1a56db)", border:"none", color:"#fff", fontWeight:700, fontSize:15, cursor:"pointer", fontFamily:"inherit", opacity:loading?0.7:1 }}>
           {loading?"Signing in...":"Sign In →"}
         </button>
-        <div style={{ textAlign:"center", marginTop:14, color:"#94a3b8", fontSize:12 }}>Default: radhika_user / user$123 </div>
+        <div style={{ textAlign:"center", marginTop:14, color:"#94a3b8", fontSize:12 }}>Default: admin / admin123</div>
       </div>
     </div>
   );
@@ -134,6 +134,8 @@ export default function App() {
   const [dlLoading, setDlLoading] = useState("");
   const [reportMonth, setReportMonth] = useState("");
   const [reportYear,  setReportYear]  = useState("");
+  const [receiptMonth, setReceiptMonth] = useState("");
+  const [receiptYear,  setReceiptYear]  = useState("");
   const [reminderSending, setReminderSending] = useState(false);
   const [reminderMsg,     setReminderMsg]     = useState("");
 
@@ -196,24 +198,30 @@ export default function App() {
   }
 
   async function sendOverdueReminders() {
-    if (!confirm("Send email reminders to ALL overdue flat owners with their receipt attached?")) return;
-    setReminderSending(true); setReminderMsg("");
+    if (!confirm("Send email reminders to ALL overdue flat owners with their receipt attached? This may take 1-2 minutes for many flats.")) return;
+    setReminderSending(true);
+    setReminderMsg("⏳ Sending emails... this can take 1-2 minutes, please wait and don't close the page.");
     try {
       const res = await apiFetch("/reminders/send-overdue/", {
         method: "POST",
         body: JSON.stringify({ status: "overdue" }),
       });
-      const data = await res.json();
-      if (res.ok) {
+      const text = await res.text();
+      let data;
+      try { data = JSON.parse(text); } catch { data = null; }
+
+      if (res.ok && data) {
         setReminderMsg(`✅ Sent to ${data.sent_count} member(s). Skipped: ${data.skipped_count}. Failed: ${data.failed_count}.`);
-      } else {
+      } else if (data) {
         setReminderMsg("❌ " + (data.error || JSON.stringify(data)));
+      } else {
+        setReminderMsg("❌ Server timeout or error (no JSON response). The backend may have taken too long — try again with fewer flats, or check Render logs.");
       }
-    } catch {
-      setReminderMsg("❌ Network error. Check backend.");
+    } catch (e) {
+      setReminderMsg("❌ Network/timeout error: " + e.message + ". The server may still be processing — wait a minute then refresh to check if emails went through.");
     }
     setReminderSending(false);
-    setTimeout(()=>setReminderMsg(""), 8000);
+    setTimeout(()=>setReminderMsg(""), 15000);
   }
 
   async function sendSingleReminder(flatId) {
@@ -248,8 +256,15 @@ export default function App() {
         : new Date().toISOString().slice(0,10);
       name=`maintenance_${suffix}.xlsx`;
     } else if (type==="receipt") {
-      path=`/reports/receipt/${flatId}/`;
-      name=`receipt_${flatId}.pdf`;
+      const params = [];
+      if (receiptMonth) params.push(`month=${receiptMonth}`);
+      if (receiptYear)  params.push(`year=${receiptYear}`);
+      const qs = params.length ? `?${params.join("&")}` : "";
+      path=`/reports/receipt/${flatId}/${qs}`;
+      const suffix = (receiptMonth||receiptYear)
+        ? `${receiptYear||new Date().getFullYear()}-${receiptMonth?String(receiptMonth).padStart(2,"0"):"all"}`
+        : new Date().toISOString().slice(0,10);
+      name=`receipt_${flatId}_${suffix}.pdf`;
     }
     await downloadFile(path, name);
     setDlLoading("");
@@ -330,8 +345,8 @@ export default function App() {
         <div className="header-row" style={{ maxWidth:1280, margin:"0 auto" }}>
           <div style={{ width:42, height:42, borderRadius:13, background:"rgba(255,255,255,.13)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:22, flexShrink:0 }}>🏢</div>
           <div className="header-info">
-            <div className="header-title" style={{ color:"#fff", fontFamily:"'DM Serif Display',serif", fontSize:18, lineHeight:1.2 }}>Radhika Apartment</div>
-            <div className="header-address" style={{ color:"rgba(255,255,255,.5)", fontSize:11, marginTop:2 }}>New Ganesh Nagar · Hajimalang Road · Adiwali · Kalyan (East) 421306</div>
+            <div className="header-title" style={{ color:"#fff", fontFamily:"'DM Serif Display',serif", fontSize:18, lineHeight:1.2 }}>Radhika Apartment Co-op Housing Society</div>
+            <div className="header-address" style={{ color:"rgba(255,255,255,.5)", fontSize:11, marginTop:2 }}>New Ganesh Nagar · Hazimalang Road · Adiwali · Kalyan (East) 421306</div>
           </div>
           <div className="header-actions">
             <div className="header-outstanding" style={{ textAlign:"right" }}>
@@ -597,10 +612,36 @@ export default function App() {
                 ))}
               </div>
 
+              {/* Receipt Month/Year Filter */}
+              <div style={{ display:"flex", gap:8, marginBottom:8, flexWrap:"wrap" }}>
+                <select value={receiptMonth} onChange={e=>setReceiptMonth(e.target.value)}
+                  style={{ flex:"1 1 110px", padding:"8px 10px", borderRadius:8, border:"1.5px solid #e2e8f0", fontSize:12, outline:"none", fontFamily:"inherit", color:"#334155", background:"#fff" }}>
+                  <option value="">All Months</option>
+                  {["January","February","March","April","May","June","July","August","September","October","November","December"].map((m,i)=>(
+                    <option key={m} value={i+1}>{m}</option>
+                  ))}
+                </select>
+                <select value={receiptYear} onChange={e=>setReceiptYear(e.target.value)}
+                  style={{ flex:"1 1 90px", padding:"8px 10px", borderRadius:8, border:"1.5px solid #e2e8f0", fontSize:12, outline:"none", fontFamily:"inherit", color:"#334155", background:"#fff" }}>
+                  <option value="">All Years</option>
+                  {[2024,2025,2026,2027].map(y=><option key={y} value={y}>{y}</option>)}
+                </select>
+                {(receiptMonth||receiptYear) && (
+                  <button onClick={()=>{setReceiptMonth("");setReceiptYear("");}}
+                    style={{ padding:"8px 12px", borderRadius:8, background:"#f1f5f9", color:"#64748b", fontWeight:600, fontSize:12, border:"none", cursor:"pointer", fontFamily:"inherit" }}>
+                    Clear
+                  </button>
+                )}
+              </div>
+
               {/* Receipt Download Button */}
               <button onClick={()=>handleDownload("receipt", sel.id)} disabled={dlLoading==="receipt"}
                 style={{ width:"100%", padding:"11px", borderRadius:10, background:"#f0fdf4", border:"1.5px solid #86efac", color:"#15803d", fontWeight:700, fontSize:13, cursor:"pointer", fontFamily:"inherit", marginBottom:10, opacity:dlLoading==="receipt"?0.6:1 }}>
-                {dlLoading==="receipt"?"⏳ Generating Receipt...":"🧾 Download Individual Receipt (PDF)"}
+                {dlLoading==="receipt"
+                  ?"⏳ Generating Receipt..."
+                  :(receiptMonth||receiptYear)
+                    ?`🧾 Download Receipt (${receiptMonth?["","January","February","March","April","May","June","July","August","September","October","November","December"][receiptMonth]:""}${receiptYear?" "+receiptYear:""})`
+                    :"🧾 Download Individual Receipt (PDF)"}
               </button>
 
               {/* Email Reminder Button - Admin only */}
