@@ -1,7 +1,24 @@
 import { useState, useEffect, useMemo } from "react";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
-let authToken = localStorage.getItem("token") || "";
+
+function getToken() {
+  try { return localStorage.getItem("token") || ""; }
+  catch { return ""; }
+}
+
+function setToken(token) {
+  try {
+    localStorage.setItem("token", token);
+    return true;
+  } catch { return false; }
+}
+
+function removeToken() {
+  try { localStorage.removeItem("token"); } catch {}
+}
+
+let authToken = getToken();
 
 async function apiFetch(path, options = {}) {
   const res = await fetch(`${API_URL}${path}`, {
@@ -14,13 +31,12 @@ async function apiFetch(path, options = {}) {
   });
   if (res.status === 401) {
     authToken = "";
-    localStorage.removeItem("token");
+    removeToken();
     window.location.reload();
   }
   return res;
 }
 
-// Download with auth token (fixes PDF/Excel not downloading)
 async function downloadFile(path, filename) {
   const res = await fetch(`${API_URL}${path}`, {
     headers: { Authorization: `Bearer ${authToken}` },
@@ -70,7 +86,8 @@ function LoginScreen({ onLogin }) {
       const data = await res.json();
       if (res.ok) {
         authToken = data.access;
-        localStorage.setItem("token", data.access);
+        setToken(data.access);
+        console.log("Token saved:", getToken() ? "YES" : "NO");
         onLogin(data.user);
       } else {
         setError(data.error || "Invalid credentials");
@@ -143,7 +160,7 @@ export default function App() {
     if (authToken) {
       apiFetch("/auth/me/").then(r=>r.ok?r.json():null).then(u=>{
         if(u) setUser(u);
-        else { authToken=""; localStorage.removeItem("token"); }
+        else { authToken=""; removeItem("token"); }
       });
     }
   }, []);
