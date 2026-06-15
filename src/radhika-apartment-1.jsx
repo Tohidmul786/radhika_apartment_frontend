@@ -148,8 +148,6 @@ export default function App() {
   const [reportYear,  setReportYear]  = useState("");
   const [receiptMonth, setReceiptMonth] = useState("");
   const [receiptYear,  setReceiptYear]  = useState("");
-  const [reminderSending, setReminderSending] = useState(false);
-  const [reminderMsg,     setReminderMsg]     = useState("");
 
   useEffect(() => {
     if (authToken) {
@@ -207,83 +205,6 @@ export default function App() {
       }
     } catch { setPayMsg("❌ Network error. Check backend."); }
     setPaying(false);
-  }
-
-  async function testEmail() {
-    const toEmail = prompt("Enter YOUR email address to receive a test email:");
-    if (!toEmail) return;
-    setReminderSending(true);
-    setReminderMsg("⏳ Sending test email...");
-    try {
-      const res = await apiFetch("/reminders/test-email/", {
-        method: "POST",
-        body: JSON.stringify({ to_email: toEmail }),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setReminderMsg(`✅ Test email sent to ${toEmail}! Check your inbox (and spam folder). Gmail is working!`);
-      } else {
-        setReminderMsg(`❌ Failed: ${data.error || JSON.stringify(data)}`);
-      }
-    } catch(e) {
-      setReminderMsg("❌ Network error: " + e.message);
-    }
-    setReminderSending(false);
-    setTimeout(()=>setReminderMsg(""), 15000);
-  }
-
-  async function sendOverdueReminders() {
-    if (!confirm("Send email reminders to ALL overdue flat owners with their receipt attached? This may take 1-2 minutes for many flats.")) return;
-    setReminderSending(true);
-    setReminderMsg("⏳ Sending emails... this can take 1-2 minutes, please wait and don't close the page.");
-    try {
-      const res = await apiFetch("/reminders/send-overdue/", {
-        method: "POST",
-        body: JSON.stringify({ status: "overdue" }),
-      });
-      const text = await res.text();
-      let data;
-      try { data = JSON.parse(text); } catch { data = null; }
-
-      if (res.ok && data) {
-        setReminderMsg(`✅ Sent to ${data.sent_count} member(s). Skipped: ${data.skipped_count}. Failed: ${data.failed_count}.`);
-      } else if (data) {
-        setReminderMsg("❌ " + (data.error || JSON.stringify(data)));
-      } else {
-        setReminderMsg("❌ Server timeout or error (no JSON response). The backend may have taken too long — try again with fewer flats, or check Render logs.");
-      }
-    } catch (e) {
-      setReminderMsg("❌ Network/timeout error: " + e.message + ". The server may still be processing — wait a minute then refresh to check if emails went through.");
-    }
-    setReminderSending(false);
-    setTimeout(()=>setReminderMsg(""), 15000);
-  }
-
-  async function sendSingleReminder(flatId) {
-    setReminderSending(true);
-    setReminderMsg("⏳ Sending email... please wait.");
-    try {
-      const res = await apiFetch(`/reminders/send/${flatId}/`, { method: "POST" });
-      const text = await res.text();
-      let data;
-      try { data = JSON.parse(text); } catch { data = null; }
-
-      if (res.ok && data?.success) {
-        setReminderMsg(`✅ Email sent to ${data.message?.replace('Email sent successfully to ','') || 'owner'}! Check their inbox.`);
-      } else if (res.status === 400) {
-        setReminderMsg(`⚠️ ${data?.error || 'Owner has no email on file. Please update email in Admin panel first.'}`);
-      } else if (res.status === 503) {
-        setReminderMsg(`⚠️ Email not configured: ${data?.error || 'Check EMAIL_HOST_USER and EMAIL_HOST_PASSWORD in Render environment variables.'}`);
-      } else if (data?.error) {
-        setReminderMsg(`❌ ${data.error}`);
-      } else {
-        setReminderMsg("❌ Unknown error. Check Render logs for details.");
-      }
-    } catch(e) {
-      setReminderMsg("❌ Network/timeout error: " + e.message + ". The server may still be processing.");
-    }
-    setReminderSending(false);
-    setTimeout(()=>setReminderMsg(""), 10000);
   }
 
 
@@ -471,24 +392,7 @@ export default function App() {
               style={{ padding:"9px 18px", borderRadius:9, background:"#dcfce7", color:"#15803d", fontWeight:700, fontSize:13, border:"1.5px solid #86efac", cursor:"pointer", fontFamily:"inherit", opacity:dlLoading==="excel"?0.6:1 }}>
               {dlLoading==="excel"?"⏳ Downloading...":"📊 Download Excel Report"}
             </button>
-            {user.is_staff && (
-              <button onClick={sendOverdueReminders} disabled={reminderSending}
-                style={{ padding:"9px 18px", borderRadius:9, background:"#fef3c7", color:"#92400e", fontWeight:700, fontSize:13, border:"1.5px solid #fcd34d", cursor:"pointer", fontFamily:"inherit", opacity:reminderSending?0.6:1 }}>
-                {reminderSending?"⏳ Sending...":"📧 Send Reminders to Overdue"}
-              </button>
-            )}
-            {user.is_staff && (
-              <button onClick={testEmail} disabled={reminderSending}
-                style={{ padding:"9px 18px", borderRadius:9, background:"#eff6ff", color:"#1a56db", fontWeight:700, fontSize:13, border:"1.5px solid #93c5fd", cursor:"pointer", fontFamily:"inherit", opacity:reminderSending?0.6:1 }}>
-                🧪 Test Email
-              </button>
-            )}
           </div>
-          {reminderMsg && (
-            <div style={{ padding:"10px 14px", borderRadius:9, background:reminderMsg.startsWith("✅")?"#dcfce7":"#fee2e2", color:reminderMsg.startsWith("✅")?"#15803d":"#991b1b", fontSize:13, marginBottom:14 }}>
-              {reminderMsg}
-            </div>
-          )}
 
           {/* MONTH-WISE REPORT SELECTOR */}
           <div style={{ background:"#fff", borderRadius:14, padding:"12px 18px", marginBottom:16, boxShadow:"0 1px 6px rgba(0,0,0,.06)", display:"flex", flexWrap:"wrap", gap:10, alignItems:"center" }}>
@@ -697,23 +601,6 @@ export default function App() {
                     ?`🧾 Download Receipt (${receiptMonth?["","January","February","March","April","May","June","July","August","September","October","November","December"][receiptMonth]:""}${receiptYear?" "+receiptYear:""})`
                     :"🧾 Download Individual Receipt (PDF)"}
               </button>
-
-              {/* Email Reminder Button - Admin only */}
-              {user.is_staff && (
-                <button onClick={()=>sendSingleReminder(sel.id)} disabled={reminderSending}
-                  style={{ width:"100%", padding:"11px", borderRadius:10, background: (!sel.email || sel.email==="N/A") ? "#f1f5f9" : "#fef3c7", border:`1.5px solid ${(!sel.email||sel.email==="N/A")?"#e2e8f0":"#fcd34d"}`, color:(!sel.email||sel.email==="N/A")?"#94a3b8":"#92400e", fontWeight:700, fontSize:13, cursor:"pointer", fontFamily:"inherit", marginBottom:10, opacity:reminderSending?0.6:1 }}>
-                  {reminderSending
-                    ? "⏳ Sending..."
-                    : (!sel.email || sel.email==="N/A")
-                      ? "📧 Email Receipt (No email on file — update in Admin)"
-                      : `📧 Email Receipt to ${sel.email}`}
-                </button>
-              )}
-              {reminderMsg && (
-                <div style={{ padding:"10px 14px", borderRadius:9, background:reminderMsg.startsWith("✅")?"#dcfce7":reminderMsg.startsWith("⚠️")?"#fef9c3":"#fee2e2", color:reminderMsg.startsWith("✅")?"#15803d":reminderMsg.startsWith("⚠️")?"#854d0e":"#991b1b", fontSize:12, marginBottom:10 }}>
-                  {reminderMsg}
-                </div>
-              )}
 
               <div style={{ display:"flex", gap:10 }}>
                 {sel.balance>0 && user.is_staff && (
