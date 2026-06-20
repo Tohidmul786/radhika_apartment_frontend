@@ -120,7 +120,7 @@ function LoginScreen({ onLogin }) {
         <button onClick={handleLogin} disabled={loading} style={{ width:"100%", padding:"13px", borderRadius:11, background:"linear-gradient(135deg,#0c1f3f,#1a56db)", border:"none", color:"#fff", fontWeight:700, fontSize:15, cursor:"pointer", fontFamily:"inherit", opacity:loading?0.7:1 }}>
           {loading?"Signing in...":"Sign In →"}
         </button>
-        <div style={{ textAlign:"center", marginTop:14, color:"#94a3b8", fontSize:12 }}>Default: admin / admin123</div>
+        <div style={{ textAlign:"center", marginTop:14, color:"#94a3b8", fontSize:12 }}>Try This: Radhika_user / user$123 </div>
       </div>
     </div>
   );
@@ -315,7 +315,7 @@ export default function App() {
           <div style={{ width:42, height:42, borderRadius:13, background:"rgba(255,255,255,.13)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:22, flexShrink:0 }}>🏢</div>
           <div className="header-info">
             <div className="header-title" style={{ color:"#fff", fontFamily:"'DM Serif Display',serif", fontSize:18, lineHeight:1.2 }}>Radhika Apartment Co-op Housing Society</div>
-            <div className="header-address" style={{ color:"rgba(255,255,255,.5)", fontSize:11, marginTop:2 }}>New Ganesh Nagar · Hazimalang Road · Adiwali · Kalyan (East) 421306</div>
+            <div className="header-address" style={{ color:"rgba(255,255,255,.5)", fontSize:11, marginTop:2 }}>New Ganesh Nagar · Hajimalang Road · Adiwali · Kalyan (East) 421306</div>
           </div>
           <div className="header-actions">
             <div className="header-outstanding" style={{ textAlign:"right" }}>
